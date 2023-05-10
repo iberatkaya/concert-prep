@@ -307,6 +307,7 @@
 				DEVELOPMENT_TEAM = DQ7CFP6525;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "concert-prep/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Concert Prep";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -336,6 +337,7 @@
 				DEVELOPMENT_TEAM = DQ7CFP6525;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "concert-prep/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Concert Prep";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
