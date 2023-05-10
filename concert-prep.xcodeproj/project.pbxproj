@@ -21,6 +21,7 @@
 /* Begin PBXFileReference section */
 		F4C383BB2A09E39B00AF8CE7 /* Utils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
 		F4C383BE2A09F7EE00AF8CE7 /* Date.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Date.swift; sourceTree = "<group>"; };
+		F4C383C12A0B612D00AF8CE7 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
 		F4CA5DBF2A08377F00E39CF6 /* concert-prep.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "concert-prep.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F4CA5DC22A08377F00E39CF6 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		F4CA5DC42A08377F00E39CF6 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -72,6 +73,7 @@
 			children = (
 				F4CA5DC22A08377F00E39CF6 /* AppDelegate.swift */,
 				F4CA5DC42A08377F00E39CF6 /* SceneDelegate.swift */,
+				F4C383C12A0B612D00AF8CE7 /* Config.xcconfig */,
 				F4CA5DC62A08377F00E39CF6 /* ViewController.swift */,
 				F4C383BB2A09E39B00AF8CE7 /* Utils.swift */,
 				F4C383BD2A09F7E200AF8CE7 /* Extensions */,
