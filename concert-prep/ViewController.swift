@@ -5,7 +5,6 @@
 //  Created by Ibrahim Berat Kaya on 5/7/23.
 //
 
-import MediaPlayer
 import MusicKit
 import SnapKit
 import StoreKit
