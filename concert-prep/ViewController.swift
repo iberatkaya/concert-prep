@@ -62,21 +62,23 @@ class ViewController: UIViewController {
         let view = UIButton()
         view.setTitle("Generate Playlist", for: .normal)
         view.setTitleColor(.blue, for: .normal)
+        view.setTitle("Generating", for: .disabled)
+        view.setTitleColor(.gray, for: .disabled)
         view.backgroundColor = .white
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
     @objc func onGeneratePress() {
+        generateButton.isEnabled = false
         webview.evaluateJavaScript("document.documentElement.outerHTML.toString()",
                                    completionHandler: { (html: Any?, error: Error?) in
                                        do {
                                            guard let html = html as? String else {
-                                               print("not string")
                                                return
                                            }
                                            let doc: Document = try SwiftSoup.parse(html)
-                                           let songElements = try doc.select(".songLabel")
+                                           let songElements = try doc.select(".songPart")
                                            let songs: [String] = try songElements.map { i in
                                                try i.text()
                                            }
@@ -86,34 +88,35 @@ class ViewController: UIViewController {
                                                try i.text()
                                            }.last
                                            
-                                           print(songs)
-                                           
                                            Task {
-                                               await withTaskGroup(of: Song?.self) { group in
-                                                   var playlistSongs = [Song]()
-                                                   for i in songs {
+                                               await withTaskGroup(of: [Int: Song]?.self) { group in
+                                                   var playlistSongs = [[Int: Song]]()
+                                                   for (index, i) in songs.enumerated() {
                                                        group.addTask {
-                                                           var request = MusicCatalogSearchRequest(term: "\(i)", types: [Song.self])
+                                                           
+                                                           var request: MusicCatalogSearchRequest
+                                                           if let artist {
+                                                               request = MusicCatalogSearchRequest(term: "\(artist) \(i)", types: [Song.self, Artist.self])
+                                                           } else {
+                                                                request = MusicCatalogSearchRequest(term: "\(i)", types: [Song.self])
+                                                           }
                                                            request.includeTopResults = true
+                                                           request.limit = 20
                                                            
                                                            let response = try? await request.response()
-
-                                                           if let hasNextBatch = response?.songs.hasNextBatch, !hasNextBatch {
-                                                               print("### NO SONG FOUND FOR SEARCH TERM \(artist!) \(i)")
-                                                           }
                                                            
-                                                           let songs = try? await response?.songs.nextBatch(limit: 20)
+                                                           let songs = response?.songs
                                                            
                                                            if let songs {
                                                                if let artist {
                                                                    for j in songs {
-                                                                       if levDis(j.artistName, artist) < 3 {
-                                                                           return j
+                                                                       if levDis(j.artistName, artist) < 3 || j.artistName.contains(artist) || artist.contains(j.artistName) {
+                                                                           return [index: j]
                                                                        }
                                                                    }
                                                                } else {
                                                                    if let song = songs.first {
-                                                                       return song
+                                                                       return [index: song]
                                                                    }
                                                                }
                                                            }
@@ -127,15 +130,15 @@ class ViewController: UIViewController {
                                                        }
                                                    }
                                                    
-                                                   var sortedPlaylist = [Song]()
+                                                   var nullableSortedPlaylist = [Song?](repeating: nil, count: songs.count)
                                                    
-                                                   songs.forEach { song in
-                                                       for p in playlistSongs {
-                                                           if p.title == song {
-                                                               sortedPlaylist.append(p)
-                                                           }
-                                                       }
+                                                   playlistSongs.forEach { obj in
+                                                       let index = Array(obj)[0].key
+                                                       let value = Array(obj)[0].value
+                                                       nullableSortedPlaylist[index] = value
                                                    }
+                                                   
+                                                   let sortedPlaylist: [Song] = nullableSortedPlaylist.compactMap({ $0 })
                                                    
                                                    let date = Date()
                                                    
@@ -144,22 +147,22 @@ class ViewController: UIViewController {
                                                    let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName)
                                                    
                                                    if let playlist {
-                                                       try? await MusicLibrary.shared.edit(playlist, items: sortedPlaylist)
+                                                       _ = try? await MusicLibrary.shared.edit(playlist, items: sortedPlaylist)
                                                    }
                                                    
                                                    let alert = UIAlertController(title: "Completed", message: (artist != nil) ? "Check Apple Music for your playlist for \(artist!)." : "Check Apple Music for your playlist", preferredStyle: .alert)
                                                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Completed"), style: .default, handler: { _ in
-                                                       let url = URL(string: "music://")
-                                                       UIApplication.shared.open(url!, options: [:], completionHandler: nil)
+                                                       let url = URL(string: "music://")!
+                                                       UIApplication.shared.open(url, options: [:], completionHandler: nil)
                                                    }))
-                                                   DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                                       self.present(alert, animated: true, completion: nil)
-                                                   }
+                                                   self.present(alert, animated: true, completion: nil)
+                                                   self.generateButton.isEnabled = true
                                                }
                                            }
                 
                                        } catch {
                                            print(error.localizedDescription)
+                                           self.generateButton.isEnabled = true
                                        }
                                    })
     }
