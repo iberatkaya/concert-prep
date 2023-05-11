@@ -21,26 +21,37 @@ class ViewController: UIViewController {
         
         view.backgroundColor = .white
         view.addSubview(webview)
-        view.addSubview(generateButton)
+        view.addSubview(webviewBottomContainer)
+        view.addSubview(bottomSafeAreaView)
+        
+        webviewBottomContainer.addSubview(generateButton)
+        webviewBottomContainer.addSubview(progressBar)
         
         webview.snp.makeConstraints { make in
             make.top.left.right.equalTo(view.safeAreaLayoutGuide)
-            make.bottom.equalTo(generateButton.snp.top)
+            make.bottom.equalTo(webviewBottomContainer.snp.top)
+        }
+        
+        webviewBottomContainer.snp.makeConstraints { make in
+            make.bottom.equalTo(bottomSafeAreaView.snp.top)
+            make.left.right.equalTo(view.safeAreaLayoutGuide)
+            make.height.equalTo(48)
         }
         
         generateButton.snp.makeConstraints { make in
-            make.bottom.left.right.equalTo(view.safeAreaLayoutGuide)
-            make.height.equalTo(50)
+            make.bottom.left.right.top.equalTo(webviewBottomContainer)
+        }
+        
+        progressBar.snp.makeConstraints { make in
+            make.centerX.centerY.equalToSuperview()
+            make.left.right.equalTo(webviewBottomContainer).inset(40)
+            make.height.equalTo(6)
         }
         
         generateButton.addTarget(self, action: #selector(onGeneratePress), for: .touchUpInside)
         
         webViewURLObserver = webview.observe(\.url, options: .new) { _, change in
             print("URL: \(String(describing: change.newValue))")
-            // The webview parameter is the webview whose url changed
-            // The change parameter is a NSKeyvalueObservedChange
-            // n.b.: you don't have to deregister the observation;
-            // this is handled automatically when webViewURLObserver is dealloced.
         }
         
         let myURL = URL(string: "https://www.setlist.fm/")
@@ -48,11 +59,34 @@ class ViewController: UIViewController {
         webview.load(myRequest)
     }
     
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        bottomSafeAreaView.snp.makeConstraints { make in
+            make.bottom.left.right.equalToSuperview()
+            make.top.equalTo(webviewBottomContainer.snp.bottom)
+            make.height.equalTo(view.safeAreaInsets.bottom)
+        }
+    }
+    
     let webview: WKWebView = {
         let view = WKWebView()
-        // songPart
         view.scrollView.minimumZoomScale = 1
         view.scrollView.maximumZoomScale = 1
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    let webviewBottomContainer: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor(red: 235/255, green: 235/255, blue: 235/255, alpha: 1)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    let bottomSafeAreaView: UIView = {
+        let view = UIView()
+        view.backgroundColor = UIColor(red: 235/255, green: 235/255, blue: 235/255, alpha: 1)
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -63,13 +97,40 @@ class ViewController: UIViewController {
         view.setTitleColor(.blue, for: .normal)
         view.setTitle("Generating", for: .disabled)
         view.setTitleColor(.gray, for: .disabled)
-        view.backgroundColor = .white
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
+    let progressBar: UIProgressView = {
+        let view = UIProgressView()
+        view.progressTintColor = UIColor(red: 80/255, green: 205/255, blue: 80/255, alpha: 1)
+        view.trackTintColor = UIColor(red: 200/255, green: 220/255, blue: 200/255, alpha: 1)
+        view.progress = 0.0
+        view.isHidden = true
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    func increaseProgressBarValue(_ progress: Float) {
+        progressBar.setProgress(progressBar.progress + progress, animated: true)
+    }
+    
+    func setProgressBarValue(_ progress: Float) {
+        progressBar.setProgress(0.05, animated: true)
+    }
+    
     @objc func onGeneratePress() {
-        generateButton.isEnabled = false
+        generateButton.isHidden = true
+        progressBar.isHidden = false
+        var timerCtr = 0
+        // Display first 20% progress with a timer
+        Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { timer in
+            timerCtr += 1
+            self.increaseProgressBarValue(0.05)
+            if timerCtr == 4 {
+                timer.invalidate()
+            }
+        }
         webview.evaluateJavaScript("document.documentElement.outerHTML.toString()",
                                    completionHandler: { (html: Any?, error: Error?) in
                                        do {
@@ -87,17 +148,24 @@ class ViewController: UIViewController {
                                                try i.text()
                                            }.last
                                            
+                                           if songs.isEmpty {
+                                               self.progressBar.isHidden = true
+                                               self.setProgressBarValue(0)
+                                               self.generateButton.isHidden = false
+                                               return
+                                           }
+                                           
                                            Task {
+                                               var ctr = 0.0
                                                await withTaskGroup(of: [Int: Song]?.self) { group in
                                                    var playlistSongs = [[Int: Song]]()
                                                    for (index, i) in songs.enumerated() {
                                                        group.addTask {
-                                                           
                                                            var request: MusicCatalogSearchRequest
                                                            if let artist {
                                                                request = MusicCatalogSearchRequest(term: "\(artist) \(i)", types: [Song.self, Artist.self])
                                                            } else {
-                                                                request = MusicCatalogSearchRequest(term: "\(i)", types: [Song.self])
+                                                               request = MusicCatalogSearchRequest(term: "\(i)", types: [Song.self])
                                                            }
                                                            request.includeTopResults = true
                                                            request.limit = 20
@@ -123,9 +191,15 @@ class ViewController: UIViewController {
                                                        }
                                                    }
                                                    
+                                                   // Do 60% of progress
                                                    for await song in group {
                                                        if let song {
                                                            playlistSongs.append(song)
+                                                           ctr += 1.0
+                                                           
+                                                           let progress = ctr/Double(songs.count)
+                                                           
+                                                           self.increaseProgressBarValue(Float(0.6 * progress))
                                                        }
                                                    }
                                                    
@@ -137,7 +211,9 @@ class ViewController: UIViewController {
                                                        nullableSortedPlaylist[index] = value
                                                    }
                                                    
-                                                   let sortedPlaylist: [Song] = nullableSortedPlaylist.compactMap({ $0 })
+                                                   self.increaseProgressBarValue(0.05)
+                                                   
+                                                   let sortedPlaylist: [Song] = nullableSortedPlaylist.compactMap { $0 }
                                                    
                                                    let date = Date()
                                                    
@@ -145,9 +221,15 @@ class ViewController: UIViewController {
                                                    
                                                    let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName)
                                                    
+                                                   // Display another 10% progress
+                                                   self.increaseProgressBarValue(0.1)
+                                                   
                                                    if let playlist {
                                                        _ = try? await MusicLibrary.shared.edit(playlist, items: sortedPlaylist)
                                                    }
+                                                   
+                                                   // Display another 5% progress
+                                                   self.increaseProgressBarValue(0.05)
                                                    
                                                    let alert = UIAlertController(title: "Completed", message: (artist != nil) ? "Check Apple Music for your playlist for \(artist!)." : "Check Apple Music for your playlist", preferredStyle: .alert)
                                                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Completed"), style: .default, handler: { _ in
@@ -155,13 +237,20 @@ class ViewController: UIViewController {
                                                        UIApplication.shared.open(url, options: [:], completionHandler: nil)
                                                    }))
                                                    self.present(alert, animated: true, completion: nil)
-                                                   self.generateButton.isEnabled = true
+                                                   
+                                                   
+                                                   self.progressBar.isHidden = true
+                                                   self.setProgressBarValue(0.0)
+                                                   self.generateButton.isHidden = false
                                                }
                                            }
                 
                                        } catch {
                                            print(error.localizedDescription)
-                                           self.generateButton.isEnabled = true
+                                           
+                                           self.progressBar.isHidden = true
+                                           self.setProgressBarValue(0.0)
+                                           self.generateButton.isHidden = false
                                        }
                                    })
     }
