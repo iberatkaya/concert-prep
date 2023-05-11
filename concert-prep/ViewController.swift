@@ -57,6 +57,8 @@ class ViewController: UIViewController {
         let myURL = URL(string: "https://www.setlist.fm/")
         let myRequest = URLRequest(url: myURL!)
         webview.load(myRequest)
+        
+        webview.configuration.userContentController.addUserScript(getZoomDisableScript())
     }
     
     override func viewDidLayoutSubviews() {
@@ -73,6 +75,7 @@ class ViewController: UIViewController {
         let view = WKWebView()
         view.scrollView.minimumZoomScale = 1
         view.scrollView.maximumZoomScale = 1
+        view.allowsBackForwardNavigationGestures = true
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -253,5 +256,14 @@ class ViewController: UIViewController {
                                            self.generateButton.isHidden = false
                                        }
                                    })
+    }
+    
+    // Taken from https://stackoverflow.com/a/58665789
+    private func getZoomDisableScript() -> WKUserScript {
+        let source: String = "var meta = document.createElement('meta');" +
+            "meta.name = 'viewport';" +
+            "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
+            "var head = document.getElementsByTagName('head')[0];" + "head.appendChild(meta);"
+        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 }
