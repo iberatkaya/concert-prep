@@ -12,7 +12,7 @@ import SwiftSoup
 import UIKit
 import WebKit
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, WKNavigationDelegate {
     var webViewURLObserver: NSKeyValueObservation?
 
     override func viewDidLoad() {
@@ -57,6 +57,8 @@ class ViewController: UIViewController {
         let myURL = URL(string: "https://www.setlist.fm/")
         let myRequest = URLRequest(url: myURL!)
         webview.load(myRequest)
+        
+        webview.navigationDelegate = self
         
         webview.configuration.userContentController.addUserScript(getZoomDisableScript())
     }
@@ -127,7 +129,7 @@ class ViewController: UIViewController {
         progressBar.isHidden = false
         var timerCtr = 0
         // Display first 20% progress with a timer
-        Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { timer in
+        Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { timer in
             timerCtr += 1
             self.increaseProgressBarValue(0.05)
             if timerCtr == 4 {
@@ -265,5 +267,16 @@ class ViewController: UIViewController {
             "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
             "var head = document.getElementsByTagName('head')[0];" + "head.appendChild(meta);"
         return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+    
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if let host = navigationAction.request.url?.host {
+            if host.contains("setlist.fm") {
+                decisionHandler(.allow)
+                return
+            }
+        }
+
+        decisionHandler(.cancel)
     }
 }
