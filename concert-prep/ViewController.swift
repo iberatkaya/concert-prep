@@ -48,7 +48,7 @@ class ViewController: UIViewController, WKNavigationDelegate {
             make.height.equalTo(6)
         }
         
-        generateButton.addTarget(self, action: #selector(onGeneratePress), for: .touchUpInside)
+        generateButton.addTarget(self, action: #selector(onGeneratePressSelector), for: .touchUpInside)
         
         webViewURLObserver = webview.observe(\.url, options: .new) { _, change in
             print("URL: \(String(describing: change.newValue))")
@@ -124,15 +124,29 @@ class ViewController: UIViewController, WKNavigationDelegate {
         progressBar.setProgress(0.05, animated: true)
     }
     
-    @objc func onGeneratePress() {
+    @objc func onGeneratePressSelector() {
+        Task {
+            await onGeneratePress()
+        }
+    }
+    
+    func onGeneratePress() async {
         generateButton.isHidden = true
         progressBar.isHidden = false
+        
+        
+        let status = await MusicAuthorization.request()
+        print(status)
+        if status != .authorized {
+            return
+        }
+        
         var timerCtr = 0
         // Display first 20% progress with a timer
-        Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { timer in
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
             timerCtr += 1
-            self.increaseProgressBarValue(0.05)
-            if timerCtr == 4 {
+            self.increaseProgressBarValue(0.025)
+            if timerCtr == 8 {
                 timer.invalidate()
             }
         }
@@ -216,6 +230,7 @@ class ViewController: UIViewController, WKNavigationDelegate {
                                                        nullableSortedPlaylist[index] = value
                                                    }
                                                    
+                                                   // Display another 5% progress
                                                    self.increaseProgressBarValue(0.05)
                                                    
                                                    let sortedPlaylist: [Song] = nullableSortedPlaylist.compactMap { $0 }
@@ -226,15 +241,15 @@ class ViewController: UIViewController, WKNavigationDelegate {
                                                    
                                                    let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName)
                                                    
-                                                   // Display another 10% progress
-                                                   self.increaseProgressBarValue(0.1)
+                                                   // Display another 5% progress
+                                                   self.increaseProgressBarValue(0.05)
                                                    
                                                    if let playlist {
                                                        _ = try? await MusicLibrary.shared.edit(playlist, items: sortedPlaylist)
                                                    }
                                                    
-                                                   // Display another 5% progress
-                                                   self.increaseProgressBarValue(0.05)
+                                                   // Display another 10% progress
+                                                   self.increaseProgressBarValue(0.1)
                                                    
                                                    let alert = UIAlertController(title: "Completed", message: (artist != nil) ? "Check Apple Music for your playlist for \(artist!)." : "Check Apple Music for your playlist", preferredStyle: .alert)
                                                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Completed"), style: .default, handler: { _ in
