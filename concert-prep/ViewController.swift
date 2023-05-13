@@ -35,11 +35,12 @@ class ViewController: UIViewController, WKNavigationDelegate {
         webviewBottomContainer.snp.makeConstraints { make in
             make.bottom.equalTo(bottomSafeAreaView.snp.top)
             make.left.right.equalTo(view.safeAreaLayoutGuide)
-            make.height.equalTo(48)
+            make.height.equalTo(60)
         }
         
         generateButton.snp.makeConstraints { make in
-            make.bottom.left.right.top.equalTo(webviewBottomContainer)
+            make.bottom.top.equalTo(webviewBottomContainer).inset(8)
+            make.centerX.centerY.equalToSuperview()
         }
         
         progressBar.snp.makeConstraints { make in
@@ -48,6 +49,7 @@ class ViewController: UIViewController, WKNavigationDelegate {
             make.height.equalTo(6)
         }
         
+        generateButton.titleLabel?.font = .systemFont(ofSize: 18, weight: .semibold)
         generateButton.addTarget(self, action: #selector(onGeneratePressSelector), for: .touchUpInside)
         
         webViewURLObserver = webview.observe(\.url, options: .new) { _, change in
@@ -84,22 +86,27 @@ class ViewController: UIViewController, WKNavigationDelegate {
     
     let webviewBottomContainer: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor(red: 235/255, green: 235/255, blue: 235/255, alpha: 1)
+        view.backgroundColor = UIColor(red: 245/255, green: 245/255, blue: 240/255, alpha: 1)
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
     let bottomSafeAreaView: UIView = {
         let view = UIView()
-        view.backgroundColor = UIColor(red: 235/255, green: 235/255, blue: 235/255, alpha: 1)
+        view.backgroundColor = UIColor(red: 245/255, green: 245/255, blue: 240/255, alpha: 1)
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
     
     let generateButton: UIButton = {
-        let view = UIButton()
+        var configuration = UIButton.Configuration.filled()
+        configuration.cornerStyle = .large
+        configuration.baseBackgroundColor = UIColor(red: 255/255, green: 95/255, blue: 100/255, alpha: 1)
+        configuration.buttonSize = .large
+
+        let view = UIButton(configuration: configuration)
         view.setTitle("Generate Playlist", for: .normal)
-        view.setTitleColor(.blue, for: .normal)
+        view.setTitleColor(.white, for: .normal)
         view.setTitle("Generating", for: .disabled)
         view.setTitleColor(.gray, for: .disabled)
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -108,8 +115,8 @@ class ViewController: UIViewController, WKNavigationDelegate {
     
     let progressBar: UIProgressView = {
         let view = UIProgressView()
-        view.progressTintColor = UIColor(red: 80/255, green: 205/255, blue: 80/255, alpha: 1)
-        view.trackTintColor = UIColor(red: 200/255, green: 220/255, blue: 200/255, alpha: 1)
+        view.progressTintColor = UIColor(red: 255/255, green: 95/255, blue: 100/255, alpha: 1)
+        view.trackTintColor = UIColor(red: 255/255, green: 205/255, blue: 215/255, alpha: 1)
         view.progress = 0.0
         view.isHidden = true
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -134,9 +141,8 @@ class ViewController: UIViewController, WKNavigationDelegate {
         generateButton.isHidden = true
         progressBar.isHidden = false
         
-        
         let status = await MusicAuthorization.request()
-        print(status)
+
         if status != .authorized {
             return
         }
@@ -150,129 +156,126 @@ class ViewController: UIViewController, WKNavigationDelegate {
                 timer.invalidate()
             }
         }
-        webview.evaluateJavaScript("document.documentElement.outerHTML.toString()",
-                                   completionHandler: { (html: Any?, error: Error?) in
-                                       do {
-                                           guard let html = html as? String else {
-                                               return
-                                           }
-                                           let doc: Document = try SwiftSoup.parse(html)
-                                           let songElements = try doc.select(".songPart")
-                                           let songs: [String] = try songElements.map { i in
-                                               try i.text()
-                                           }
-                                           
-                                           let artistElement = try doc.select(".setlistHeadline h1 strong span a span")
-                                           let artist = try artistElement.map { i in
-                                               try i.text()
-                                           }.last
-                                           
-                                           if songs.isEmpty {
-                                               self.progressBar.isHidden = true
-                                               self.setProgressBarValue(0)
-                                               self.generateButton.isHidden = false
-                                               return
-                                           }
-                                           
-                                           Task {
-                                               var ctr = 0.0
-                                               await withTaskGroup(of: [Int: Song]?.self) { group in
-                                                   var playlistSongs = [[Int: Song]]()
-                                                   for (index, i) in songs.enumerated() {
-                                                       group.addTask {
-                                                           var request: MusicCatalogSearchRequest
-                                                           if let artist {
-                                                               request = MusicCatalogSearchRequest(term: "\(artist) \(i)", types: [Song.self, Artist.self])
-                                                           } else {
-                                                               request = MusicCatalogSearchRequest(term: "\(i)", types: [Song.self])
-                                                           }
-                                                           request.includeTopResults = true
-                                                           request.limit = 20
-                                                           
-                                                           let response = try? await request.response()
-                                                           
-                                                           let songs = response?.songs
-                                                           
-                                                           if let songs {
-                                                               if let artist {
-                                                                   for j in songs {
-                                                                       if levDis(j.artistName, artist) < 3 || j.artistName.contains(artist) || artist.contains(j.artistName) {
-                                                                           return [index: j]
-                                                                       }
-                                                                   }
-                                                               } else {
-                                                                   if let song = songs.first {
-                                                                       return [index: song]
-                                                                   }
-                                                               }
-                                                           }
-                                                           return nil
-                                                       }
-                                                   }
-                                                   
-                                                   // Do 60% of progress
-                                                   for await song in group {
-                                                       if let song {
-                                                           playlistSongs.append(song)
-                                                           ctr += 1.0
-                                                           
-                                                           let progress = ctr/Double(songs.count)
-                                                           
-                                                           self.increaseProgressBarValue(Float(0.6 * progress))
-                                                       }
-                                                   }
-                                                   
-                                                   var nullableSortedPlaylist = [Song?](repeating: nil, count: songs.count)
-                                                   
-                                                   playlistSongs.forEach { obj in
-                                                       let index = Array(obj)[0].key
-                                                       let value = Array(obj)[0].value
-                                                       nullableSortedPlaylist[index] = value
-                                                   }
-                                                   
-                                                   // Display another 5% progress
-                                                   self.increaseProgressBarValue(0.05)
-                                                   
-                                                   let sortedPlaylist: [Song] = nullableSortedPlaylist.compactMap { $0 }
-                                                   
-                                                   let date = Date()
-                                                   
-                                                   let playlistName = "\(artist ?? sortedPlaylist.first?.title ?? "123") - \(date.get(.month))/\(date.get(.day))"
-                                                   
-                                                   let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName)
-                                                   
-                                                   // Display another 5% progress
-                                                   self.increaseProgressBarValue(0.05)
-                                                   
-                                                   if let playlist {
-                                                       _ = try? await MusicLibrary.shared.edit(playlist, items: sortedPlaylist)
-                                                   }
-                                                   
-                                                   // Display another 10% progress
-                                                   self.increaseProgressBarValue(0.1)
-                                                   
-                                                   let alert = UIAlertController(title: "Completed", message: (artist != nil) ? "Check Apple Music for your playlist for \(artist!)." : "Check Apple Music for your playlist", preferredStyle: .alert)
-                                                   alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Completed"), style: .default, handler: { _ in
-                                                       let url = URL(string: "music://")!
-                                                       UIApplication.shared.open(url, options: [:], completionHandler: nil)
-                                                   }))
-                                                   self.present(alert, animated: true, completion: nil)
-                                                   
-                                                   
-                                                   self.progressBar.isHidden = true
-                                                   self.setProgressBarValue(0.0)
-                                                   self.generateButton.isHidden = false
-                                               }
-                                           }
-                
-                                       } catch {
-                                           print(error.localizedDescription)
-                                           
-                                           self.progressBar.isHidden = true
-                                           self.setProgressBarValue(0.0)
-                                           self.generateButton.isHidden = false
-                                       }
-                                   })
+        let html = try? await webview.evaluateJavaScript("document.documentElement.outerHTML.toString()")
+        do {
+            guard let html = html as? String else {
+                return
+            }
+            let doc: Document = try SwiftSoup.parse(html)
+            let songElements = try doc.select(".songPart")
+            let songs: [String] = try songElements.map { i in
+                try i.text()
+            }
+           
+            let artistElement = try doc.select(".setlistHeadline h1 strong span a span")
+            let artist = try artistElement.map { i in
+                try i.text()
+            }.last
+           
+            if songs.isEmpty {
+                progressBar.isHidden = true
+                setProgressBarValue(0)
+                generateButton.isHidden = false
+                return
+            }
+           
+            Task {
+                var ctr = 0.0
+                await withTaskGroup(of: [Int: Song]?.self) { group in
+                    var playlistSongs = [[Int: Song]]()
+                    for (index, i) in songs.enumerated() {
+                        group.addTask {
+                            var request: MusicCatalogSearchRequest
+                            if let artist {
+                                request = MusicCatalogSearchRequest(term: "\(artist) \(i)", types: [Song.self, Artist.self])
+                            } else {
+                                request = MusicCatalogSearchRequest(term: "\(i)", types: [Song.self])
+                            }
+                            request.includeTopResults = true
+                            request.limit = 20
+                           
+                            let response = try? await request.response()
+                           
+                            let songs = response?.songs
+                           
+                            if let songs {
+                                if let artist {
+                                    for j in songs {
+                                        if levDis(j.artistName, artist) < 3 || j.artistName.contains(artist) || artist.contains(j.artistName) {
+                                            return [index: j]
+                                        }
+                                    }
+                                } else {
+                                    if let song = songs.first {
+                                        return [index: song]
+                                    }
+                                }
+                            }
+                            return nil
+                        }
+                    }
+                   
+                    // Do 60% of progress
+                    for await song in group {
+                        if let song {
+                            playlistSongs.append(song)
+                            ctr += 1.0
+                           
+                            let progress = ctr/Double(songs.count)
+                           
+                            self.increaseProgressBarValue(Float(0.6 * progress))
+                        }
+                    }
+                   
+                    var nullableSortedPlaylist = [Song?](repeating: nil, count: songs.count)
+                   
+                    playlistSongs.forEach { obj in
+                        let index = Array(obj)[0].key
+                        let value = Array(obj)[0].value
+                        nullableSortedPlaylist[index] = value
+                    }
+                   
+                    // Display another 5% progress
+                    self.increaseProgressBarValue(0.05)
+                   
+                    let sortedPlaylist: [Song] = nullableSortedPlaylist.compactMap { $0 }
+                   
+                    let date = Date()
+                   
+                    let playlistName = "\(artist ?? sortedPlaylist.first?.title ?? "123") - \(date.get(.month))/\(date.get(.day))"
+                   
+                    let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName)
+                   
+                    // Display another 5% progress
+                    self.increaseProgressBarValue(0.05)
+                   
+                    if let playlist {
+                        _ = try? await MusicLibrary.shared.edit(playlist, items: sortedPlaylist)
+                    }
+                   
+                    // Display another 10% progress
+                    self.increaseProgressBarValue(0.1)
+                   
+                    let alert = UIAlertController(title: "Completed", message: (artist != nil) ? "Check Apple Music for your playlist for \(artist!)." : "Check Apple Music for your playlist", preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Completed"), style: .default, handler: { _ in
+                        let url = URL(string: "music://")!
+                        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                    }))
+                    self.present(alert, animated: true, completion: nil)
+                   
+                    self.progressBar.isHidden = true
+                    self.setProgressBarValue(0.0)
+                    self.generateButton.isHidden = false
+                }
+            }
+
+        } catch {
+            print(error.localizedDescription)
+           
+            progressBar.isHidden = true
+            setProgressBarValue(0.0)
+            generateButton.isHidden = false
+        }
     }
     
     // Taken from https://stackoverflow.com/a/58665789
