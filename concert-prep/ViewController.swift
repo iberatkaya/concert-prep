@@ -19,6 +19,8 @@ class ViewController: UIViewController, WKNavigationDelegate {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         
+        setUpNavigationTitle()
+        
         view.backgroundColor = .white
         view.addSubview(webview)
         view.addSubview(webviewBottomContainer)
@@ -39,7 +41,8 @@ class ViewController: UIViewController, WKNavigationDelegate {
         }
         
         generateButton.snp.makeConstraints { make in
-            make.bottom.top.equalTo(webviewBottomContainer).inset(8)
+            make.top.equalTo(webviewBottomContainer).inset(8)
+            make.bottom.equalTo(webviewBottomContainer)
             make.centerX.centerY.equalToSuperview()
         }
         
@@ -73,6 +76,21 @@ class ViewController: UIViewController, WKNavigationDelegate {
             make.top.equalTo(webviewBottomContainer.snp.bottom)
             make.height.equalTo(view.safeAreaInsets.bottom)
         }
+    }
+    
+    func setUpNavigationTitle() {
+        title = "Concert Prep"
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(red: 255/255, green: 95/255, blue: 100/255, alpha: 1)
+        appearance.titleTextAttributes = [
+            NSAttributedString.Key.foregroundColor : UIColor.white
+        ]
+        
+        navigationController?.navigationBar.standardAppearance = appearance
+        navigationController?.navigationBar.scrollEdgeAppearance = appearance
+        
     }
     
     let webview: WKWebView = {
