@@ -125,8 +125,6 @@ class ViewController: UIViewController, WKNavigationDelegate {
         let view = UIButton(configuration: configuration)
         view.setTitle("Generate Playlist", for: .normal)
         view.setTitleColor(.white, for: .normal)
-        view.setTitle("Generating", for: .disabled)
-        view.setTitleColor(.gray, for: .disabled)
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -149,16 +147,53 @@ class ViewController: UIViewController, WKNavigationDelegate {
         progressBar.setProgress(0.05, animated: true)
     }
     
-    @objc func onGeneratePressSelector() {
-        Task {
-            await onGeneratePress()
+    func hideGenerateButton(completion: ((Bool) -> Void)? = nil) {
+        self.generateButton.isEnabled = false
+        UIView.animate(withDuration: 0.15, animations: {
+            self.generateButton.alpha = 0
+        }, completion: { finished in
+            if finished {
+                Task {
+                    self.generateButton.isHidden = true
+                    self.progressBar.isHidden = false
+                    self.progressBar.alpha = 0
+                    UIView.animate(withDuration: 0.15, animations: {
+                        self.progressBar.alpha = 1
+                    }, completion: completion)
+                }
+            }
+        })
+    }
+    
+    func displayGenerateButton(completion: ((Bool) -> Void)? = nil) {
+        UIView.animate(withDuration: 0.15, animations: {
+            self.progressBar.alpha = 0
+        }) { finished in
+            if finished {
+                self.progressBar.isHidden = true
+                self.setProgressBarValue(0)
+                self.generateButton.isHidden = false
+                UIView.animate(withDuration: 0.15, animations: {
+                    self.generateButton.alpha = 1
+                }, completion: { finished in
+                    self.generateButton.isEnabled = true
+                    completion?(finished)
+                })
+            }
         }
     }
     
+    @objc func onGeneratePressSelector() {
+        hideGenerateButton(completion: { finished  in
+            if finished {
+                Task {
+                    await self.onGeneratePress()
+                }
+            }
+        })
+    }
+    
     func onGeneratePress() async {
-        generateButton.isHidden = true
-        progressBar.isHidden = false
-        
         let status = await MusicAuthorization.request()
 
         if status != .authorized {
@@ -260,9 +295,9 @@ class ViewController: UIViewController, WKNavigationDelegate {
                    
                     let date = Date()
                    
-                    let playlistName = "\(artist ?? sortedPlaylist.first?.title ?? "123") - \(date.get(.month))/\(date.get(.day))"
+                    let playlistName = "\(artist ?? sortedPlaylist.first?.title ?? "Concert Prep") Setlist"
                    
-                    let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName)
+                    let playlist = try? await MusicLibrary.shared.createPlaylist(name: playlistName, authorDisplayName: "Concert Prep")
                    
                     // Display another 5% progress
                     self.increaseProgressBarValue(0.05)
@@ -275,24 +310,22 @@ class ViewController: UIViewController, WKNavigationDelegate {
                     self.increaseProgressBarValue(0.1)
                    
                     let alert = UIAlertController(title: "Completed", message: (artist != nil) ? "Check Apple Music for your playlist for \(artist!)." : "Check Apple Music for your playlist", preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Completed"), style: .default, handler: { _ in
+                    alert.addAction(UIAlertAction(title: "Open Apple Music", style: .default, handler: { _ in
                         let url = URL(string: "music://")!
-                        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                        UIApplication.shared.open(url)
                     }))
+                    alert.addAction(UIAlertAction(title: "OK", style: .cancel))
                     self.present(alert, animated: true, completion: nil)
-                   
-                    self.progressBar.isHidden = true
-                    self.setProgressBarValue(0.0)
-                    self.generateButton.isHidden = false
+                    
+                    displayGenerateButton()
+                    
                 }
             }
 
         } catch {
             print(error.localizedDescription)
-           
-            progressBar.isHidden = true
-            setProgressBarValue(0.0)
-            generateButton.isHidden = false
+
+            displayGenerateButton()
         }
     }
     
