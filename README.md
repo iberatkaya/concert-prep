@@ -2,13 +2,6 @@
 
 Concert Prep is an iOS app that creates playlists in Apple Music from artist's previous concerts.
 
-
-
 ## Demo
 
-
-
-
-
-https://github.com/iberatkaya/concert-prep/assets/34488374/2ce678b0-17f7-4f25-95de-332985ba0986
-
+https://github.com/iberatkaya/concert-prep/assets/34488374/dd816503-f9fb-4a18-b16f-e7fc2387a0fe
